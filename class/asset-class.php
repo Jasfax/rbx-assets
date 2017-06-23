@@ -1,4 +1,7 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 class rbxAsset {
 	
 	public static function getModel( $ID ) {
@@ -19,14 +22,23 @@ class rbxAsset {
 		curl_setopt($ch, CURLOPT_HEADER, 0);
 		$assetInfo = json_decode(curl_exec($ch));
 		curl_close($ch);
-
+		if (!$assetInfo) {
+			return false;
+		}
 		// put some NEAT info into the asset array
+		$asset[] = $assetInfo->{'aabb'};
 		$asset['x'] = $assetInfo->{'camera'}->{'position'}->{'x'};
 		$asset['y'] = $assetInfo->{'camera'}->{'position'}->{'y'};
 		$asset['z'] = $assetInfo->{'camera'}->{'position'}->{'z'};
+		$asset['camera']['min']['x'] = $assetInfo->{'aabb'}->{'min'}->{'x'};
+		$asset['camera']['min']['y'] = $assetInfo->{'aabb'}->{'min'}->{'y'};
+		$asset['camera']['min']['z'] = $assetInfo->{'aabb'}->{'min'}->{'z'};
+		$asset['camera']['max']['x'] = $assetInfo->{'aabb'}->{'max'}->{'x'};
+		$asset['camera']['max']['y'] = $assetInfo->{'aabb'}->{'max'}->{'y'};
+		$asset['camera']['max']['z'] = $assetInfo->{'aabb'}->{'max'}->{'z'};
 		$asset['obj_hash'] = $assetInfo->{'obj'};
 		$asset['mtl_hash'] = $assetInfo->{'mtl'};
-		
+
 		// get obj & mtl contents
 		$ch_obj = curl_init(self::getHashUrl($asset['obj_hash']));
 		$ch_mtl = curl_init(self::getHashUrl($asset['mtl_hash']));
@@ -50,6 +62,10 @@ class rbxAsset {
 		
 		$asset['obj'] = curl_multi_getcontent($ch_obj);
 		$asset['mtl'] = curl_multi_getcontent($ch_mtl);
+		$asset['test'] = substr($asset['obj'], 0, 1);
+		if ($asset['test'] != 'g') {
+			$asset['obj'] = 'error';
+		}
 		return $asset;
 	}
 	
@@ -60,9 +76,10 @@ class rbxAsset {
 		if (md5($image) == '9975a2d4dc1ecf81f7e49916099c8c55') {
 			
 			// try again
-			$image = file_get_contents('https://www.roblox.com/Thumbs/Asset.ashx?width=512&height=512&assetId='.$ID);
-			if (md5($image) == '9975a2d4dc1ecf81f7e49916099c8c55') {
-				return false;
+			$tryAgainLink = 'http://www.roblox.com/Thumbs/Asset.ashx?width=512&height=512&assetId='.$ID . '&' . rand(0, 10000);
+			$image = file_get_contents($tryAgainLink);
+			while (md5($image) == '9975a2d4dc1ecf81f7e49916099c8c55') {
+				$image = file_get_contents($tryAgainLink);
 			}
 		}
 		
